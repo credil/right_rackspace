@@ -70,7 +70,7 @@ module Rightscale
       #
       def list_containers(params={}, opts={})
         add_fields(opts, :vars, params.merge(:format => 'json'), :override)
-        api_or_cache(:get, "/", opts)
+        api(:get, "/", opts)
       end
 
       # Incrementally list containers

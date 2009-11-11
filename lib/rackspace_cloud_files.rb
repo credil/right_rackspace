@@ -246,7 +246,7 @@ module Rightscale
       # Params: :range, :if_match, :if_none_match, :if_modified_since, :if_unmodified_since
       #
       #  # Get object
-      #  storage.get_object_with_meta_data("my_container", "kd #1") #=> "Hello world"
+      #  storage.get_object("my_container", "kd #1") #=> "Hello world"
       #
       #  # Streamed output (for huge objects)
       #  x = File::new('/tmp/test.jpg', "w")
@@ -262,7 +262,7 @@ module Rightscale
 
       # Delete object.
       #
-      #  storage.get_object_with_meta_data("my_container", "kd #1") #=> true
+      #  storage.delete_object("my_container", "kd #1") #=> true
       #
       def delete_object(container_name, object_name, opts={})
         api(:delete, "/#{URI.escape container_name}/#{URI.escape object_name}", opts)
