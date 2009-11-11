@@ -28,12 +28,15 @@ require "base64"
 require 'rubygems'
 require 'json'
 require 'right_http_connection'
+require 'time'
 
 $:.unshift(File.dirname(__FILE__))
 require 'benchmark_fix'
 require 'support'
 require 'rackspace_base'
 require 'rackspace'
+require 'rackspace_cloud_files'
+require 'rackspace_cdn'
 
 module RightRackspace #:nodoc:
   module VERSION #:nodoc:

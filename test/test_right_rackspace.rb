@@ -165,8 +165,9 @@ class TestRightRackspace < Test::Unit::TestCase
 
   def test_030_list_shared_ip_groups
     resources_test('shared_ip_groups')
-    right_rackspace_level_caching_test('/shared_ip_groups', :list_shared_ip_groups)
-    right_rackspace_level_caching_test('/shared_ip_groups/detail', :list_shared_ip_groups, :detail => true)
+  ## mhh.... the guys below do not support rackspace level caching
+  #  right_rackspace_level_caching_test('/shared_ip_groups', :list_shared_ip_groups)
+  #  right_rackspace_level_caching_test('/shared_ip_groups/detail', :list_shared_ip_groups, :detail => true)
     rackspace_service_level_caching_test(:list_shared_ip_groups)
   end
 
@@ -290,12 +291,12 @@ class TestRightRackspace < Test::Unit::TestCase
 
   # KD: 2009-08-26:
   # Makesure the server disappeared from both list servers calls
-  def test_061_wait_for_the_server_active_state
-    wail_until("> Wait until the test server disappears from list_servers responses:") do
-      id1 = get_test_server_id
-      id2 = get_test_server_id(true)
-      !id1 && !id2
-    end
-  end
+#  def test_061_wait_for_the_server_active_state
+#    wail_until("> Wait until the test server disappears from list_servers responses:") do
+#      id1 = get_test_server_id
+#      id2 = get_test_server_id(true)
+#      !id1 && !id2
+#    end
+#  end
 
 end

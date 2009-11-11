@@ -24,9 +24,6 @@
 module Rightscale
   module Rackspace
 
-    # TODO: KD: Enable this feature when Packspace get rid of the caching issue
-    PAGINATION_ENABLED = false
-
     # == Rightscale::Rackspace::Interface 
     #
     # === Examples:
@@ -150,7 +147,7 @@ module Rightscale
     #    :on_response => on_response,
     #    :on_error    => on_error)
     #
-    class Interface
+    class Interface < BaseInterface
 
       # The login is executed automatically when one calls any othe API call.
       # The only use case  for this method is when one need to pass any custom
