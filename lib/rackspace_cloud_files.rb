@@ -60,7 +60,7 @@ module Rightscale
       # Params: :limit, :marker and :prefix(is not supported yet by Rackspace)
       #
       #  # get all containers
-      #  rackspace.list_containers #=>
+      #  storage.list_containers #=>
       #    [{"bytes"=>2000052, "name"=>"kd #1", "count"=>6},
       #     {"bytes"=>0, "name"=>"photos", "count"=>0},
       #     {"bytes"=>0, "name"=>"pictures", "count"=>0}]
@@ -203,9 +203,9 @@ module Rightscale
 
       # Create a new object.
       #
-      #  storage.create_object("my_container", "kd #1", 'Hello world', {'tag1' => 'woo-hoo', 'tag2' => 'ohohoh'}) #=> true
+      #  storage.put_object("my_container", "kd #1", 'Hello world', {'tag1' => 'woo-hoo', 'tag2' => 'ohohoh'}) #=> true
       #
-      def create_object(container_name, object_name, object_data, meta_data={}, content_type='text/plain', opts={})
+      def put_object(container_name, object_name, object_data, meta_data={}, content_type='text/plain', opts={})
         add_fields(opts, :headers, 'content-type' => content_type )
         add_fields(opts, :headers, meta_data, :override, 'x-object-meta-')
         opts[:body] = object_data.to_s
@@ -267,6 +267,69 @@ module Rightscale
       def delete_object(container_name, object_name, opts={})
         api(:delete, "/#{URI.escape container_name}/#{URI.escape object_name}", opts)
       end
+
+      #--------------------------------
+      # Links
+      #--------------------------------
+
+      # Generate a link to create a container
+      #
+      #  storage.create_container_link("my_container") #=>
+      #    {:headers=>
+      #      {"accept"=>["application/json"],
+      #       "content-type"=>["application/json"],
+      #       "x-storage-token"=>["01234567-245b-4873-9f31-3b6da9cee129"]},
+      #     :method=>"PUT",
+      #     :url=>"https://storage5.clouddrive.com:443/v1/MossoCloudFS_01234567-8766-4af0-8cab-270fc9578f98/my_container"}
+      #
+      def create_container_link(container_name, opts={})
+        create_container(container_name, opts.merge(:link_only => true))
+      end
+
+      # Generate a link to delete a container
+      #
+      #  storage.delete_container_link("my_container") #=>
+      #    {:headers=>
+      #      {"accept"=>["application/json"],
+      #       "content-type"=>["application/json"],
+      #       "x-storage-token"=>["01234567-245b-4873-9f31-3b6da9cee129"]},
+      #     :method=>"DELETE",
+      #     :url=>"https://storage5.clouddrive.com:443/v1/MossoCloudFS_01234567-8766-4af0-8cab-270fc9578f98/my_container"}
+      #
+      def delete_container_link(container_name, opts={})
+        delete_container(container_name, opts.merge(:link_only => true))
+      end
+
+      # Generate a link to put an object.
+      #
+      #  storage.put_object_link("my_container", "kd #1", {'tag1' => 'woo-hoo', 'tag2' => 'ohohoh'}) #=>
+      #    {:method=>"GET",
+      #     :headers=>
+      #      {"accept"=>["application/json"],
+      #       "content-type"=>["text/plain"],
+      #       "x-object-meta-tag1"=>["woo-hoo"],
+      #       "x-storage-token"=>["01234567-245b-4873-9f31-3b6da9cee129"],
+      #       "x-object-meta-tag2"=>["ohohoh"]},
+      #     :url=>"https://storage5.clouddrive.com:443/v1/MossoCloudFS_01234567-8766-4af0-8cab-270fc9578f98/my_container/kd%20%231"}
+      #
+      def put_object_link(container_name, object_name, meta_data={}, content_type='text/plain', opts={})
+        put_object(container_name, object_name, "", meta_data, content_type, opts.merge(:link_only => true))
+      end
+
+      # Generate a link to get an object.
+      #
+      #  storage.get_object_link("my_container", "kd #1") #=>
+      #    {:method=>"PUT"
+      #     :headers=>
+      #      {"accept"=>["*/*"],
+      #       "content-type"=>["application/json"],
+      #       "x-storage-token"=>["01234567-245b-4873-9f31-3b6da9cee129"]},
+      #     :url=>"https://storage5.clouddrive.com:443/v1/MossoCloudFS_01234567-8766-4af0-8cab-270fc9578f98/my_container/kd%20%231"}
+      #
+      def get_object_link(container_name, object_name, params={}, opts={})
+       get_object(container_name, object_name, params, opts.merge(:link_only => true))
+      end
+
 
     private
     

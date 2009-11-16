@@ -446,7 +446,19 @@ module Rightscale
         login unless @logged_in
         options[:headers] ||= {}
         options[:headers][@auth_token_key] = @auth_token
-        request_info(generate_request(verb, path, options), &block)
+        request_hash = generate_request(verb, path, options)
+        if options[:link_only]
+          url = ""
+          url << "#{request_hash[:protocol]}://" if request_hash[:protocol]
+          url << "#{request_hash[:server]}"
+          url << ":#{request_hash[:port]}" if request_hash[:port]
+          url << request_hash[:request].path
+          { :url     => url,
+            :method  => request_hash[:request].method,
+            :headers => request_hash[:request].to_hash }
+        else
+          request_info(request_hash, &block)
+        end
       end
 
       # Call Rackspace. Use cache if possible
