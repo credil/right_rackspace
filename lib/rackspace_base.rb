@@ -236,7 +236,7 @@ module Rightscale
             # TODO: Mhhh... It seems Rackspace updates 'last-modified' header every 60 seconds or something even if nothing has changed
             if @last_response.body.blank?
               cached_path    = cached_path(@last_request.path)
-              last_modified  = @last_response['last-modified'].first
+              last_modified  = Array(@last_response['last-modified']).first
               message_header = merged_params[:caching] &&
                                @cache[cached_path] &&
                                @cache[cached_path][:last_modified_at] == last_modified ? 'Cached' : 'NotModified'
@@ -249,7 +249,7 @@ module Rightscale
           @@bench.parser.add! do
             result = if @last_response.body.blank? then true
                      else
-                       case @last_response['content-type'].first
+                       case Array(@last_response['content-type']).first
                        when 'application/json' then JSON::parse(@last_response.body)
                        else @last_response.body
                        end
@@ -310,9 +310,9 @@ module Rightscale
         end
         # Store all auth response headers
         @auth_headers = @last_response.to_hash
-        @auth_token   = @auth_headers['x-auth-token'].first
+        @auth_token   = Array(@auth_headers['x-auth-token']).first
         # Service endpoint
-        @service_endpoint      = merged_params[:service_endpoint] || @auth_headers['x-server-management-url'].first
+        @service_endpoint      = merged_params[:service_endpoint] || Array(@auth_headers['x-server-management-url']).first
         @service_endpoint_data = endpoint_to_host_data(@service_endpoint)
         @logged_in = true
         on_event(:on_login_success)
@@ -377,7 +377,7 @@ module Rightscale
         unless cache_record
           response = proc.call
           if use_caching
-            last_modified_at = @last_response.to_hash['last-modified'].first
+            last_modified_at = Array(@last_response['last-modified']).first
             update_cache(path, last_modified_at, response)
           end
           response
