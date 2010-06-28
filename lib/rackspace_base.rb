@@ -263,7 +263,9 @@ module Rightscale
           @error_handler   = nil
           if result.nil?
             on_event(:on_failure)
-            raise Error.new(@last_error)
+            error = Error.new(@last_error)
+            error.parsed_response = JSON.parse(@last_response.body) rescue nil
+            raise error
           end
         end
         result
@@ -413,6 +415,15 @@ module Rightscale
     end
 
     class Error < RuntimeError
+      attr_accessor :parsed_response
+
+      def http_code
+        @parsed_response.values.first["code"]
+      end
+      
+      def errors
+        @parsed_response.collect { |k,v| [k, v["message"]] }
+      end
     end
 
     class HttpErrorHandler # :nodoc:
