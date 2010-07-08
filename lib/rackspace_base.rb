@@ -416,14 +416,21 @@ module Rightscale
 
     class Error < RuntimeError
       attr_accessor :parsed_response
-
+      
       def http_code
+        return 500 if @parsed_response.nil?
         @parsed_response.values.first["code"]
       end
       
       def errors
+        return [default_error] if @parsed_response.nil?
         @parsed_response.collect { |k,v| [k, v["message"]] }
       end
+
+      def default_error
+        ["cloudServersFault", message]
+      end
+
     end
 
     class HttpErrorHandler # :nodoc:
