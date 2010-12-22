@@ -320,6 +320,8 @@ module Rightscale
       def create_image(server_id, name, opts={})
         body = { 'image' => { 'name'     => name,
                               'serverId' => server_id } }
+        # don't try to retry if we get a timeout
+        opts.merge!(:raise_on_timeout => true)
         api(:post, "/images",  opts.merge(:body => body.to_json))
       end
 
@@ -451,6 +453,9 @@ module Rightscale
         body['server']['sharedIpGroupId']   = server_data[:shared_ip_group_id] if server_data[:shared_ip_group_id]
         body['server']['metadata']    = server_data[:metadata] unless server_data[:metadata].blank?
         body['server']['personality'] = personality            unless personality.blank?
+        
+        # don't try to retry if we get a timeout
+        opts.merge!(:raise_on_timeout => true)
         api(:post, "/servers", opts.merge(:body => body.to_json))
       end
 
@@ -718,6 +723,8 @@ module Rightscale
       def create_shared_ip_group(name, server_id=nil, opts={})
         body = { 'sharedIpGroup' => { 'name' => name } }
         body['sharedIpGroup']['server'] = server_id unless server_id.blank?
+        # don't try to retry if we get a timeout
+        opts.merge!(:raise_on_timeout => true)
         api(:post, "/shared_ip_groups", opts.merge(:body => body.to_json))
       end
 
