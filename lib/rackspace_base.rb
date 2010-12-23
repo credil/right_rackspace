@@ -205,8 +205,12 @@ module Rightscale
         end
         request['content-type'] ||= 'application/json'
         request['accept'] = 'application/json'
+        # http connection options: global and custom
+        endpoint_data.merge!(@params[:connection_options]) if @params[:connection_options].is_a?(Hash)
+        endpoint_data.merge!(opts[:connection_options])    if opts[:connection_options].is_a?(Hash)
         # prepare output hash
-        endpoint_data.merge(:request => request)
+        endpoint_data.merge!(:request => request)
+        endpoint_data
       end
 
       # Just requests a remote end
