@@ -31,7 +31,6 @@ require 'right_http_connection'
 
 $:.unshift(File.dirname(__FILE__))
 require 'benchmark_fix'
-require 'support'
 require 'rackspace_base'
 require 'rackspace'
 

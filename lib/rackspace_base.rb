@@ -177,7 +177,7 @@ module Rightscale
         # Select an endpoint
         endpoint_data = (opts[:endpoint_data] || @service_endpoint_data).dup
         # Fix a path
-        path = "/#{path}" if !path.blank? && !path[/^\//]
+        path = "/#{path}" if !path.right_blank? && !path[/^\//]
         # Request variables
         request_params = opts[:vars].to_a.map do |key, value|
           key = key.to_s.downcase
@@ -188,8 +188,8 @@ module Rightscale
         # Build a request final path
         service = opts[:no_service_path] ? '' : endpoint_data[:service]
         request_path  = "#{service}#{path}"
-        request_path  = '/' if request_path.blank?
-        request_path += "?#{request_params}" unless request_params.blank?
+        request_path  = '/' if request_path.right_blank?
+        request_path += "?#{request_params}" unless request_params.right_blank?
         # Create a request
         request = eval("Net::HTTP::#{verb}").new(request_path)
         request.body = opts[:body] if opts[:body]
@@ -205,8 +205,12 @@ module Rightscale
         end
         request['content-type'] ||= 'application/json'
         request['accept'] = 'application/json'
+        # http connection options: global and custom
+        endpoint_data.merge!(@params[:connection_options]) if @params[:connection_options].is_a?(Hash)
+        endpoint_data.merge!(opts[:connection_options])    if opts[:connection_options].is_a?(Hash)
         # prepare output hash
-        endpoint_data.merge(:request => request)
+        endpoint_data.merge!(:request => request)
+        endpoint_data
       end
 
       # Just requests a remote end
@@ -234,7 +238,7 @@ module Rightscale
             raise NoChange.new("NotModified: '#{simple_path(@last_request.path)}' has not changed since the requested time.")
           when '203'  # 'if-modified-since' header
             # TODO: Mhhh... It seems Rackspace updates 'last-modified' header every 60 seconds or something even if nothing has changed
-            if @last_response.body.blank?
+            if @last_response.body.right_blank?
               cached_path    = cached_path(@last_request.path)
               last_modified  = Array(@last_response['last-modified']).first
               message_header = merged_params[:caching] &&
@@ -247,7 +251,7 @@ module Rightscale
 
           # Parse a response body. If the body is empty the return +true+
           @@bench.parser.add! do
-            result = if @last_response.body.blank? then true
+            result = if @last_response.body.right_blank? then true
                      else
                        case Array(@last_response['content-type']).first
                        when 'application/json' then JSON::parse(@last_response.body)
@@ -343,8 +347,8 @@ module Rightscale
 #            raise e unless e.message[/itemNotFound/]
 #            response = nil
 #          end
-          break if  response.blank? ||
-                   (response[resource_name].blank?) ||
+          break if  response.right_blank? ||
+                   (response[resource_name].right_blank?) ||
                    (block && !block.call(response)) ||
                    (response[resource_name].size < opts[:vars]['limit'])
           opts[:vars]['offset'] += opts[:vars]['limit']
@@ -360,13 +364,20 @@ module Rightscale
         request_info(generate_request(verb, path, options))
       end
 
+      # Merge connection options but do not override the options are already set by a user
+      def merge_connection_options!(opts={}, connection_opts={})
+         opts[:connection_options] ||= {}
+         connection_opts.each{ |key, value| opts[:connection_options][key] = value unless opts[:connection_options].has_key?(key) }
+         opts
+      end
+
       # Call Rackspace. Use cache if possible
       # opts:
       #  :incrementally - use incrementally list to get the whole list of items
       #  otherwise it will get max DEFAULT_LIMIT items (PS API call must support pagination)
       #
       def api_or_cache(verb, path, options={}) # :nodoc:
-        use_caching  = merged_params[:caching] && options[:vars].blank?
+        use_caching  = merged_params[:caching] && options[:vars].right_blank?
         cache_record = use_caching && @cache[path]
         # Create a proc object to avoid a code duplication
         proc = Proc.new do

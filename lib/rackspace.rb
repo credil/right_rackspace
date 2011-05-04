@@ -320,6 +320,8 @@ module Rightscale
       def create_image(server_id, name, opts={})
         body = { 'image' => { 'name'     => name,
                               'serverId' => server_id } }
+        # don't try to retry if we get a timeout
+        merge_connection_options!(opts, :raise_on_timeout => true)
         api(:post, "/images",  opts.merge(:body => body.to_json))
       end
 
@@ -449,8 +451,10 @@ module Rightscale
         }
         #body['server']['adminPass']   = server_data[:password] if     server_data[:password]
         body['server']['sharedIpGroupId']   = server_data[:shared_ip_group_id] if server_data[:shared_ip_group_id]
-        body['server']['metadata']    = server_data[:metadata] unless server_data[:metadata].blank?
-        body['server']['personality'] = personality            unless personality.blank?
+        body['server']['metadata']    = server_data[:metadata] unless server_data[:metadata].right_blank?
+        body['server']['personality'] = personality            unless personality.right_blank?
+        # don't try to retry if we get a timeout
+        merge_connection_options!(opts, :raise_on_timeout => true)
         api(:post, "/servers", opts.merge(:body => body.to_json))
       end
 
@@ -669,8 +673,8 @@ module Rightscale
       #
       def update_backup_schedule(server_id, schedule_data={}, opts={})
         body = { 'backupSchedule' => { 'enabled' => schedule_data[:enabled] ? true : false } }
-        daily  = schedule_data[:daily].blank?  ? 'DISABLED' : schedule_data[:daily].to_s.upcase
-        weekly = schedule_data[:weekly].blank? ? 'DISABLED' : schedule_data[:weekly].to_s.upcase
+        daily  = schedule_data[:daily].right_blank?  ? 'DISABLED' : schedule_data[:daily].to_s.upcase
+        weekly = schedule_data[:weekly].right_blank? ? 'DISABLED' : schedule_data[:weekly].to_s.upcase
         body['backupSchedule']['daily']  = daily
         body['backupSchedule']['weekly'] = weekly
         api(:post, "/servers/#{server_id}/backup_schedule", opts.merge(:body => body.to_json))
@@ -717,7 +721,9 @@ module Rightscale
       #
       def create_shared_ip_group(name, server_id=nil, opts={})
         body = { 'sharedIpGroup' => { 'name' => name } }
-        body['sharedIpGroup']['server'] = server_id unless server_id.blank?
+        body['sharedIpGroup']['server'] = server_id unless server_id.right_blank?
+        # don't try to retry if we get a timeout
+        merge_connection_options!(opts, :raise_on_timeout => true)
         api(:post, "/shared_ip_groups", opts.merge(:body => body.to_json))
       end
 
