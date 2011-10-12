@@ -88,7 +88,7 @@ module Rightscale
 
         server = URI.parse(endpoint).host
         # use snet if we are on rackspace
-        server = server.gsub(/^storage/, 'snet-storage') if @cloud == 'rackspace'
+        server = server.gsub(/^storage/, 'snet-storage') if @use_snet
 
         { :server   => server,
           :service  => service,
@@ -214,8 +214,8 @@ module Rightscale
                           end
         # Logger
         @logger = @params[:logger] || (defined?(RAILS_DEFAULT_LOGGER) && RAILS_DEFAULT_LOGGER) || Logger.new(STDOUT)
-        # Cloud
-        @cloud = @params[:cloud]
+        # Use snet
+        @use_snet = @params[:use_snet]
         # Request and response
         @last_request = nil
         @last_request_opts = nil
