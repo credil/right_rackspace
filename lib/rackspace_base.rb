@@ -85,7 +85,12 @@ module Rightscale
       def endpoint_to_host_data(endpoint) # :nodoc:
         service = URI.parse(endpoint).path
         service.chop! if service[/\/$/]  # remove a trailing '/'
-        { :server   => URI.parse(endpoint).host,
+
+        server = URI.parse(endpoint).host
+        # use snet if we are on rackspace
+        server = server.gsub(/^storage/, 'snet-storage') if @cloud == 'rackspace'
+
+        { :server   => server,
           :service  => service,
           :protocol => URI.parse(endpoint).scheme,
           :port     => URI.parse(endpoint).port }
@@ -209,6 +214,8 @@ module Rightscale
                           end
         # Logger
         @logger = @params[:logger] || (defined?(RAILS_DEFAULT_LOGGER) && RAILS_DEFAULT_LOGGER) || Logger.new(STDOUT)
+        # Cloud
+        @cloud = @params[:cloud]
         # Request and response
         @last_request = nil
         @last_request_opts = nil
