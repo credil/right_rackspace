@@ -44,6 +44,6 @@ module RightRackspace #:nodoc:
     MINOR = 0
     TINY  = 0
 
-    STRING = [MAJOR, MINOR, TINY].join('.')
+    STRING = [MAJOR, MINOR, TINY].join('.') + '.20111110'
   end
 end
