@@ -239,8 +239,6 @@ module Rightscale
         internal_request_info(request_hash)
         result = nil
         # check response for success...
-        puts "!!!!"
-        puts @last_response.code
         case @last_response.code
         when /^2..|304/   # SUCCESS
           @error_handler = nil
