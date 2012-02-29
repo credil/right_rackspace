@@ -157,6 +157,7 @@ module Rightscale
         # Request and response
         @last_request = nil
         @last_response = nil
+        @rackspace_caching = params.has_key?(:rackspace_caching) ? params[:rackspace_caching] : true
         # cache
         @cache = {}
       end
@@ -178,6 +179,11 @@ module Rightscale
         endpoint_data = (opts[:endpoint_data] || @service_endpoint_data).dup
         # Fix a path
         path = "/#{path}" if !path.right_blank? && !path[/^\//]
+        if verb == 'Get' && !(opts.key?(:rackspace_caching) ? opts[:rackspace_caching] : @rackspace_caching)
+          # In order to disable caching we have to add to the url unique param
+          opts[:vars] ||={}
+          opts[:vars][:rstimestamp] = generate_timestamp
+        end
         # Request variables
         request_params = opts[:vars].to_a.map do |key, value|
           key = key.to_s.downcase
@@ -213,6 +219,12 @@ module Rightscale
         endpoint_data
       end
 
+      def generate_timestamp
+        t = Time.now
+        ("%d%06d" % [ t.to_i, t.usec]).to_i
+      end
+      private :generate_timestamp
+
       # Just requests a remote end
       def internal_request_info(request_hash) #:nodoc:
         on_event(:on_request, request_hash)
@@ -227,6 +239,8 @@ module Rightscale
         internal_request_info(request_hash)
         result = nil
         # check response for success...
+        puts "!!!!"
+        puts @last_response.code
         case @last_response.code
         when /^2..|304/   # SUCCESS
           @error_handler = nil
