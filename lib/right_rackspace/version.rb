@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009 RightScale Inc
+# Copyright (c) 2012 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -21,17 +21,8 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-require 'benchmark'
-require 'net/https'
-require 'uri'
-require "base64"
-require 'rubygems'
-require 'json'
-require 'right_http_connection'
-
-$:.unshift(File.dirname(__FILE__))
-
-require 'right_rackspace/benchmark_fix'
-require 'right_rackspace/rackspace_base'
-require 'right_rackspace/rackspace'
-require "right_rackspace/version"
+module RightScale
+  module Rackspace
+    VERSION = "0.0.0"
+  end
+end
