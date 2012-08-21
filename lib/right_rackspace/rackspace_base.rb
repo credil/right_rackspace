@@ -147,7 +147,9 @@ module RightScale
         # Auth data
         @username  = username || ENV['RACKSPACE_USERNAME']
         @auth_key  = auth_key || ENV['RACKSPACE_AUTH_KEY']
-        @logged_in = false
+        @logged_in = credentials(username)[:logged_in]
+        @auth_token = credentials(username)[:auth_token]
+        @service_endpoint_data = credentials(username)[:service_endpoint_data]
         # Auth host
         @auth_headers  = {} # a set of headers is returned on authentification coplete
         @auth_endpoint = ENV['RACKSPACE_AUTH_ENDPOINT'] || params[:auth_endpoint] || DEFAULT_AUTH_ENDPOINT
@@ -224,6 +226,11 @@ module RightScale
         ("%d%06d" % [ t.to_i, t.usec]).to_i
       end
       private :generate_timestamp
+
+      def credentials(username)
+        Thread.current['right_rackspace_credentials_storage'] ||= {}
+        Thread.current['right_rackspace_credentials_storage'][username] ||= {}
+      end
 
       # Just requests a remote end
       def internal_request_info(request_hash) #:nodoc:
@@ -310,7 +317,7 @@ module RightScale
       # do not overrides @last_request and @last_response attributes (are needed for a proper
       # error handling) on success.
       def authenticate(opts={}) # :nodoc:
-        @logged_in    = false
+        @logged_in = credentials(@username)[:logged_in] = false
         @auth_headers = {}
         opts = opts.dup
         opts[:endpoint_data] = @auth_endpoint_data
@@ -328,11 +335,12 @@ module RightScale
         end
         # Store all auth response headers
         @auth_headers = @last_response.to_hash
-        @auth_token   = Array(@auth_headers['x-auth-token']).first
+        auth_token   = Array(@auth_headers['x-auth-token']).first
+        @auth_token = credentials(@username)[:auth_token] = auth_token
         # Service endpoint
         @service_endpoint      = merged_params[:service_endpoint] || Array(@auth_headers['x-server-management-url']).first
-        @service_endpoint_data = endpoint_to_host_data(@service_endpoint)
-        @logged_in = true
+        @service_endpoint_data = credentials(@username)[:service_endpoint_data] = endpoint_to_host_data(@service_endpoint)
+        @logged_in = credentials(@username)[:logged_in] = true
         on_event(:on_login_success)
         true
       end
@@ -370,9 +378,9 @@ module RightScale
 
       # Call Rackspace. Caching is not used.
       def api(verb, path='', options={}) # :nodoc:
-        login unless @logged_in
+        login unless credentials(@username)[:logged_in]
         options[:headers] ||= {}
-        options[:headers]['x-auth-token'] = @auth_token
+        options[:headers]['x-auth-token'] = credentials(@username)[:auth_token]
         request_info(generate_request(verb, path, options))
       end
 
