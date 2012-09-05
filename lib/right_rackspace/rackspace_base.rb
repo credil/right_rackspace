@@ -561,6 +561,12 @@ module RightScale
             # Oops it seems we have been asked about reauthentication..
             if REAUTHENTICATE_ON.include?(@handle.last_response.code)
               @handle.authenticate
+
+              # after authenticate (see the code above) we have updated token
+              # but we need to update appropriate request header with that token
+              # otherwise expired token will be used
+              request_hash[:request]['x-auth-token'] = @handle.auth_token
+
               @handle.request_info(request_hash)
             end
             # Make another try
