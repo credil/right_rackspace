@@ -62,12 +62,12 @@ module RightScale
       def merged_params #:nodoc:
         @@params.merge(@params)
       end
-      
+
       @@caching = false
 
       attr_accessor :username
       attr_accessor :auth_key
-      attr_reader   :logged_in
+      attr_accessor :logged_in
       attr_reader   :auth_headers
       attr_reader   :auth_token
       attr_accessor :auth_endpoint
@@ -89,7 +89,7 @@ module RightScale
       end
 
       # Create new Rackspace interface handle.
-      # 
+      #
       # Params:
       #  :logger            - a logger object
       #  :caching           - enabled/disables RightRackspace caching on level (only for list_xxx calls)
@@ -163,7 +163,7 @@ module RightScale
       end
 
       # Generate a request.
-      # 
+      #
       # opts:
       #  :body            - String
       #  :endpoint_data   - Hash
@@ -243,7 +243,7 @@ module RightScale
         when /^2..|304/   # SUCCESS
           @error_handler = nil
           on_event(:on_success)
-          
+
           # Cache hit: Cached
           case @last_response.code
           when '304'  # 'changes-since' param
@@ -370,10 +370,18 @@ module RightScale
 
       # Call Rackspace. Caching is not used.
       def api(verb, path='', options={}) # :nodoc:
+        @last_api_request_data = [ verb, path, options ]
         login unless @logged_in
         options[:headers] ||= {}
         options[:headers]['x-auth-token'] = @auth_token
-        request_info(generate_request(verb, path, options))
+        return request_info(generate_request(verb, path, options))
+      ensure
+        @last_api_request_data = nil
+      end
+
+      def api_retry # :nodoc:
+        raise "Must not be called manually!" unless @last_api_request_data
+        api(*@last_api_request_data)
       end
 
       # Merge connection options but do not override the options are already set by a user
@@ -439,12 +447,12 @@ module RightScale
 
     class Error < RuntimeError
       attr_accessor :parsed_response
-      
+
       def http_code
         return 500 if @parsed_response.nil?
         @parsed_response.values.first["code"]
       end
-      
+
       def errors
         return [default_error] if @parsed_response.nil?
         @parsed_response.collect { |k,v| [k, v["message"]] }
@@ -508,60 +516,64 @@ module RightScale
         @errors_list   = params[:errors_list] || []
         @reiteration_delay = @@reiteration_start_delay
         @retries       = 0
+        @reauth_allowed = true
       end
 
       # Process errored response
       def check(request_hash)  #:nodoc:
-        result      = nil
-        error_found = false
-        response    = @handle.last_response
-        error_message = @handle.last_error
+        retriable_error = false
+        response        = @handle.last_response
+        error_message   = @handle.last_error
         # Log the error
         logger = @handle.logger
         unless SKIP_LOGGING_ON.include?(response.code)
           logger.warn("##### #{@handle.class.name} returned an error: #{error_message} #####")
           logger.warn("##### #{@handle.class.name} request: #{request_hash[:server]}:#{request_hash[:port]}#{request_hash[:request].path} ####")
         end
-        # now - check the error
-        @errors_list.each do |error_to_find|
-          if error_message[/#{error_to_find}/i]
-            error_found = error_to_find
-            logger.warn("##### Retry is needed, error pattern match: #{error_to_find} #####")
-            break
+        # Is it a reauthentication request?
+        reauth_error = @reauth_allowed && REAUTHENTICATE_ON.include?(@handle.last_response.code)
+        # Check if the error is in the list of retriable ones
+        unless reauth_error
+          @errors_list.each do |error_to_find|
+            if error_message[/#{error_to_find}/i]
+              retriable_error = error_to_find
+              logger.warn("##### Retry is needed, error pattern match: #{error_to_find} #####")
+              break
+            end
           end
         end
-        # yep, we know this error and have to do a retry when it comes
-        if error_found || REAUTHENTICATE_ON.include?(@handle.last_response.code)
-          # check the time has gone from the first error come
-          # Close the connection to the server and recreate a new one.
-          # It may have a chance that one server is a semi-down and reconnection
-          # will help us to connect to the other server
-          if (Time.now < @stop_at)
-            @retries += 1
-            @handle.logger.warn("##### Retry ##{@retries} is being performed. Sleeping for #{@reiteration_delay} sec. Whole time: #{Time.now-@started_at} sec ####")
-            sleep @reiteration_delay
-            @reiteration_delay *= 2
-            # Always make sure that the fp is set to point to the beginning(?)
-            # of the File/IO. TODO: it assumes that offset is 0, which is bad.
-            if request_hash[:request].body_stream && request_hash[:request].body_stream.respond_to?(:pos)
-              begin
-                request_hash[:request].body_stream.pos = 0
-              rescue Exception => e
-                logger.warn("Retry may fail due to unable to reset the file pointer -- #{self.class.name} : #{e.inspect}")
-              end
+        # We dont know the error - just exit with nil
+        return nil unless reauth_error || retriable_error
+        # check the time has gone from the first error come
+        # Close the connection to the server and recreate a new one.
+        # It may have a chance that one server is a semi-down and reconnection
+        # will help us to connect to the other server
+        if Time.now >= @stop_at
+          logger.warn("##### Ooops, time is over... ####")
+          return nil
+        else
+          @retries += 1
+          @handle.logger.warn("##### Retry ##{@retries} is being performed. Sleeping for #{@reiteration_delay} sec. Whole time: #{Time.now-@started_at} sec ####")
+          sleep @reiteration_delay
+          @reiteration_delay *= 2
+          # Always make sure that the fp is set to point to the beginning(?)
+          # of the File/IO. TODO: it assumes that offset is 0, which is bad.
+          if request_hash[:request].body_stream && request_hash[:request].body_stream.respond_to?(:pos)
+            begin
+              request_hash[:request].body_stream.pos = 0
+            rescue Exception => e
+              logger.warn("Retry may fail due to unable to reset the file pointer -- #{self.class.name} : #{e.inspect}")
             end
-            # Oops it seems we have been asked about reauthentication..
-            if REAUTHENTICATE_ON.include?(@handle.last_response.code)
-              @handle.authenticate
-              @handle.request_info(request_hash)
-            end
-            # Make another try
-            result = @handle.request_info(request_hash)
-          else
-            logger.warn("##### Ooops, time is over... ####")
           end
+          # Oops it seems we have been asked about reauthentication..
+          if reauth_error
+            # But do not reauthenticate more than once: if creds are wrong it is just time wasting...
+            @reauth_allowed   = false
+            @handle.logged_in = false
+          end
+          # Make another attempt
+          return @handle.api_retry
         end
-        result
       end
 
     end
