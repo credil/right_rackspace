@@ -21,7 +21,7 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 #
-module Rightscale
+module RightScale
   module Rackspace
 
     class BenchmarkingBlock #:nodoc:
@@ -45,7 +45,7 @@ module Rightscale
         @@rackspace_problems
       end
 
-      @@bench = Rightscale::Rackspace::BenchmarkingBlock.new
+      @@bench = RightScale::Rackspace::BenchmarkingBlock.new
       def self.bench
         @@bench
       end
@@ -109,20 +109,20 @@ module Rightscale
       # Handle creation:
       #
       #  # Just pass your username and youe key
-      #  rackspace = Rightscale::Rackspace::Interface::new('uw1...cct', '99b0...047d')
+      #  rackspace = RightScale::Rackspace::Interface::new('uw1...cct', '99b0...047d')
       #
       #  # The username and the key are in ENV vars: RACKSPACE_USERNAME & RACKSPACE_AUTH_KEY
-      #  rackspace = Rightscale::Rackspace::Interface::new
+      #  rackspace = RightScale::Rackspace::Interface::new
       #
       #  # Specify the auth endpoint and the service endpoint explicitly. Make the error
       #  # messages as verbose as possible.
-      #  rackspace = Rightscale::Rackspace::Interface::new('uw1...cct', '99b0...047d',
+      #  rackspace = RightScale::Rackspace::Interface::new('uw1...cct', '99b0...047d',
       #    :auth_endpoint  => 'https://api.mosso.com/auth',
       #    :service_point  => 'https://servers.api.rackspacecloud.com/v1.0/413609',
       #    :verbose_errors => true )
       #
       #  # Fix params after the handle creation:
-      #  rackspace = Rightscale::Rackspace::Interface::new('uw1...cct', '99b0...047d')
+      #  rackspace = RightScale::Rackspace::Interface::new('uw1...cct', '99b0...047d')
       #  rackspace.params[:verbose_errors] = true
       #
       # Calbacks handling:
@@ -138,7 +138,7 @@ module Rightscale
       #  end
       #
       #  # Create a handle
-      #  rackspace = Rightscale::Rackspace::Interface::new('uw1...cct', '99b0...047d',
+      #  rackspace = RightScale::Rackspace::Interface::new('uw1...cct', '99b0...047d',
       #    :on_response => on_response,
       #    :on_error    => on_error)
       #
@@ -355,7 +355,7 @@ module Rightscale
 #          begin
             response = api(verb, path, opts)
             result[resource_name] += response[resource_name]
-#          rescue Rightscale::Rackspace::Error => e
+#          rescue RightScale::Rackspace::Error => e
 #            raise e unless e.message[/itemNotFound/]
 #            response = nil
 #          end

@@ -1,8 +1,9 @@
 # Unit test for Rackspace gem
 # Specify your gogrid account credentials as described in test_credentials.rb
 
-require File.dirname(__FILE__) + '/_test_credentials'
-require File.dirname(__FILE__) + '/../lib/right_rackspace'
+require File.expand_path('_test_credentials', File.dirname(__FILE__))
+require File.expand_path('../lib/right_rackspace', File.dirname(__FILE__))
+require 'test/unit'
 
 class TestRightRackspace < Test::Unit::TestCase
 
@@ -16,7 +17,7 @@ class TestRightRackspace < Test::Unit::TestCase
     $stdout.sync = true
     ::TestCredentials.get_credentials
     # TODO: remove :auth_endpoint and :service_endpoint when the service is released publicly
-    @rackspace = Rightscale::Rackspace::Interface.new(TestCredentials.username, TestCredentials.auth_key,
+    @rackspace = RightScale::Rackspace::Interface.new(TestCredentials.username, TestCredentials.auth_key,
      :logger => Logger.new('/dev/null'))
   end
 
@@ -98,7 +99,7 @@ class TestRightRackspace < Test::Unit::TestCase
     # fill the internal cache with the response
     first_response = @rackspace.send(*api_call_data)
     # make another call and check the cache hit
-    assert_raise(Rightscale::Rackspace::NoChange) do
+    assert_raise(RightScale::Rackspace::NoChange) do
       @rackspace.send(*api_call_data)
     end
     # get the data from the cache and make sure it is equal to the initial call
@@ -109,7 +110,7 @@ class TestRightRackspace < Test::Unit::TestCase
 
   def rackspace_service_level_caching_test(*api_call_data)
 #    puts ">>> Rackspace service caching test: #{cache_key}"
-    assert_raise(Rightscale::Rackspace::NoChange) do
+    assert_raise(RightScale::Rackspace::NoChange) do
       opts = api_call_data.last.is_a?(Hash) ? api_call_data.pop : {}
       opts[:vars] = { 'changes-since' => Time.now.utc }
       api_call_data << opts
@@ -125,7 +126,7 @@ class TestRightRackspace < Test::Unit::TestCase
     # should fail with a wrong username
     username = @rackspace.username
     @rackspace.username = 'ohohohoho'
-    assert_raise Rightscale::Rackspace::Error do
+    assert_raise RightScale::Rackspace::Error do
       @rackspace.login
     end
     # should login successfully with the valid username
