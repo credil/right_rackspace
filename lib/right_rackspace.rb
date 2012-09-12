@@ -35,3 +35,8 @@ require 'right_rackspace/benchmark_fix'
 require 'right_rackspace/rackspace_base'
 require 'right_rackspace/rackspace'
 require "right_rackspace/version"
+
+# keep compartibility with old code
+module Rightscale
+  Rackspace = RightScale::Rackspace unless defined?(::Rightscale::Rackspace)
+end
