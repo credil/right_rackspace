@@ -67,9 +67,6 @@ module RightScale
 
       attr_accessor :username
       attr_accessor :auth_key
-      attr_reader   :logged_in
-      attr_reader   :auth_headers
-      attr_reader   :auth_token
       attr_accessor :auth_endpoint
       attr_accessor :service_endpoint
       attr_accessor :last_request
@@ -147,11 +144,7 @@ module RightScale
         # Auth data
         @username  = username || ENV['RACKSPACE_USERNAME']
         @auth_key  = auth_key || ENV['RACKSPACE_AUTH_KEY']
-        @logged_in = credentials(username)[:logged_in]
-        @auth_token = credentials(username)[:auth_token]
-        @service_endpoint_data = credentials(username)[:service_endpoint_data]
         # Auth host
-        @auth_headers  = {} # a set of headers is returned on authentification coplete
         @auth_endpoint = ENV['RACKSPACE_AUTH_ENDPOINT'] || params[:auth_endpoint] || DEFAULT_AUTH_ENDPOINT
         @auth_endpoint_data = endpoint_to_host_data(@auth_endpoint)
         # Logger
@@ -162,6 +155,16 @@ module RightScale
         @rackspace_caching = params.has_key?(:rackspace_caching) ? params[:rackspace_caching] : true
         # cache
         @cache = {}
+      end
+
+      [:logged_in, :auth_token, :service_endpoint_data].each do |method|
+        define_method(method) do
+          credentials(username)[method]
+        end
+
+        define_method("#{method}=") do |value|
+          credentials(username)[method] = value
+        end
       end
 
       # Generate a request.
@@ -178,7 +181,8 @@ module RightScale
         verb = verb.to_s.capitalize
         raise "Unsupported HTTP verb #{verb.inspect}!" unless verb[/^(Get|Post|Put|Delete)$/]
         # Select an endpoint
-        endpoint_data = (opts[:endpoint_data] || @service_endpoint_data).dup
+        endpoint_data = (opts[:endpoint_data] || service_endpoint_data || {}).dup
+        raise "Missing service endpoint data" if endpoint_data.right_blank?
         # Fix a path
         path = "/#{path}" if !path.right_blank? && !path[/^\//]
         if verb == 'Get' && !(opts.key?(:rackspace_caching) ? opts[:rackspace_caching] : @rackspace_caching)
@@ -299,7 +303,7 @@ module RightScale
 
       #  simple_path('/v1.0/123456/images/detail?var1=var2') #=> '/images/detail?var1=var2'
       def simple_path(path) # :nodoc:
-        (path[/^#{@service_endpoint_data[:service]}(.*)/] && $1) || path
+        (path[/^#{service_endpoint_data[:service]}(.*)/] && $1) || path
       end
 
       #  simple_path('/v1.0/123456/images/detail?var1=var2') #=> '/images/detail'
@@ -317,8 +321,7 @@ module RightScale
       # do not overrides @last_request and @last_response attributes (are needed for a proper
       # error handling) on success.
       def authenticate(opts={}) # :nodoc:
-        @logged_in = credentials(@username)[:logged_in] = false
-        @auth_headers = {}
+        self.logged_in = false
         opts = opts.dup
         opts[:endpoint_data] = @auth_endpoint_data
         (opts[:headers] ||= {}).merge!({ 'x-auth-user' => @username, 'x-auth-key'  => @auth_key })
@@ -334,13 +337,11 @@ module RightScale
           raise Error.new(@last_error)
         end
         # Store all auth response headers
-        @auth_headers = @last_response.to_hash
-        auth_token   = Array(@auth_headers['x-auth-token']).first
-        @auth_token = credentials(@username)[:auth_token] = auth_token
-        # Service endpoint
-        @service_endpoint      = merged_params[:service_endpoint] || Array(@auth_headers['x-server-management-url']).first
-        @service_endpoint_data = credentials(@username)[:service_endpoint_data] = endpoint_to_host_data(@service_endpoint)
-        @logged_in = credentials(@username)[:logged_in] = true
+        auth_headers               = @last_response.to_hash
+        service_endpoint           = merged_params[:service_endpoint] || Array(auth_headers['x-server-management-url']).first
+        self.service_endpoint_data = endpoint_to_host_data(service_endpoint)
+        self.auth_token            = Array(auth_headers['x-auth-token']).first
+        self.logged_in             = true
         on_event(:on_login_success)
         true
       end
@@ -378,9 +379,9 @@ module RightScale
 
       # Call Rackspace. Caching is not used.
       def api(verb, path='', options={}) # :nodoc:
-        login unless credentials(@username)[:logged_in]
+        login unless logged_in
         options[:headers] ||= {}
-        options[:headers]['x-auth-token'] = credentials(@username)[:auth_token]
+        options[:headers]['x-auth-token'] = auth_token
         request_info(generate_request(verb, path, options))
       end
 
@@ -566,8 +567,6 @@ module RightScale
               # but we need to update appropriate request header with that token
               # otherwise expired token will be used
               request_hash[:request]['x-auth-token'] = @handle.auth_token
-
-              @handle.request_info(request_hash)
             end
             # Make another try
             result = @handle.request_info(request_hash)
