@@ -566,8 +566,6 @@ module RightScale
               # but we need to update appropriate request header with that token
               # otherwise expired token will be used
               request_hash[:request]['x-auth-token'] = @handle.auth_token
-
-              @handle.request_info(request_hash)
             end
             # Make another try
             result = @handle.request_info(request_hash)
