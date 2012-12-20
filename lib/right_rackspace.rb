@@ -32,7 +32,7 @@ require 'time'
 
 $:.unshift(File.dirname(__FILE__))
 require 'benchmark_fix'
-require 'support'
+require 'right_rackspace_support'
 require 'rackspace_base'
 require 'rackspace'
 require 'rackspace_cloud_files'
@@ -44,6 +44,6 @@ module RightRackspace #:nodoc:
     MINOR = 0
     TINY  = 0
 
-    STRING = [MAJOR, MINOR, TINY].join('.')
+    STRING = [MAJOR, MINOR, TINY].join('.') + '.20111110'
   end
 end
