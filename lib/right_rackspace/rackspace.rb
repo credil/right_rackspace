@@ -21,15 +21,18 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 #
-module Rightscale
+module RightScale
   module Rackspace
 
-    # == Rightscale::Rackspace::Interface 
+    # TODO: KD: Enable this feature when Packspace get rid of the caching issue
+    PAGINATION_ENABLED = false
+
+    # == RightScale::Rackspace::Interface 
     #
     # === Examples:
     #
     #  # Create a handle
-    #  rackspace = Rightscale::Rackspace::Interface::new('uw1...cct', '99b0...047d', :verbose_errors => true )
+    #  rackspace = RightScale::Rackspace::Interface::new('uw1...cct', '99b0...047d', :verbose_errors => true )
     #
     #  # list images and flavors
     #  rackspace.list_images(:detaile => true)
@@ -70,7 +73,7 @@ module Rightscale
     # === RightRackspace gem caching usage (only list_xxx calls). This caching does not hit if any additional URL variables are set through :vars hash.
     #
     #  # Create a handle
-    #  rackspace = Rightscale::Rackspace::Interface::new('uw1...cct', '99b0...047d', :caching => true)
+    #  rackspace = RightScale::Rackspace::Interface::new('uw1...cct', '99b0...047d', :caching => true)
     #
     #  # make a call. this fills the internal cache with the response and
     #  # a current timestamp
@@ -82,7 +85,7 @@ module Rightscale
     #  # make another call
     #  begin
     #    new_list = rackspace.list_servers(:detail => true)
-    #  rescue Rightscale::Rackspace::NoChange
+    #  rescue RightScale::Rackspace::NoChange
     #    puts e.message #=> "Cached: '/servers/detail' has not changed since Thu, 09 Jul 2009 10:53:35 GMT."
     #    # extract the list of servers from internal cache
     #    new_list = rackspace.cache['/servers/detail'][:data]
@@ -94,7 +97,7 @@ module Rightscale
     #  rackspace.list_servers
     #  begin
     #    flavors = rackspace.list_servers
-    #  rescue Rightscale::Rackspace::NoChange
+    #  rescue RightScale::Rackspace::NoChange
     #    flavors = rackspace.cache['/servers'][:data]
     #  ens
     #
@@ -104,13 +107,13 @@ module Rightscale
     # === Rackspace service caching usage:
     #
     #  # Create a handle
-    #  rackspace = Rightscale::Rackspace::Interface::new('uw1...cct', '99b0...047d')
+    #  rackspace = RightScale::Rackspace::Interface::new('uw1...cct', '99b0...047d')
     #
     #  # 'if-modified-since' HTTP request header usage:
     #  last_request_time = Time.now - 3600
     #  begin
     #   rackspace.list_servers(:detail => true, :headers => { 'if-modified-since' => last_request_time })
-    #  rescue Rightscale::Rackspace::NoChange => e
+    #  rescue RightScale::Rackspace::NoChange => e
     #    # e.message can return one of the messages below:
     #    # - "Cached: '/servers/detail' has not changed since Thu, 09 Jul 2009 10:55:41 GMT."
     #    # - "NotModified: '/servers/detail' has not changed since Thu, 09 Jul 2009 10:55:41 GMT."
@@ -125,7 +128,7 @@ module Rightscale
     #    new_servers = rackspace.list_servers(:detail => true, :vars => { 'changes-since' => last_request_time })
     #    # show the changes at servers since last_request_time
     #    puts new_servers.inspect
-    #  rescue Rightscale::Rackspace::NoChange => e
+    #  rescue RightScale::Rackspace::NoChange => e
     #    puts e.message #=>
     #      "NotModified: '/flavors?changes-since=1247137435&limit=1000&offset=0' has not changed since the requested time."
     #  end
@@ -143,7 +146,7 @@ module Rightscale
     #  end
     #
     #  # Create a handle
-    #  rackspace = Rightscale::Rackspace::Interface::new('uw1...cct', '99b0...047d',
+    #  rackspace = RightScale::Rackspace::Interface::new('uw1...cct', '99b0...047d',
     #    :on_response => on_response,
     #    :on_error    => on_error)
     #
@@ -317,6 +320,8 @@ module Rightscale
       def create_image(server_id, name, opts={})
         body = { 'image' => { 'name'     => name,
                               'serverId' => server_id } }
+        # don't try to retry if we get a timeout
+        merge_connection_options!(opts, :raise_on_timeout => true)
         api(:post, "/images",  opts.merge(:body => body.to_json))
       end
 
@@ -342,7 +347,7 @@ module Rightscale
       #       {"name"=>"1GB slice", "id"=>3, "ram"=>1024, "disk"=>40},
       #       ...}]}
       #
-      #  # Get the most recent changes or Rightscale::Rackspace::NoChange.
+      #  # Get the most recent changes or RightScale::Rackspace::NoChange.
       #  # (no RightRackspace gem caching)
       #  rackspace.list_flavors(:detail => true, :vars => {'changes-since'=>Time.now-3600}) #=>
       #
@@ -446,8 +451,10 @@ module Rightscale
         }
         #body['server']['adminPass']   = server_data[:password] if     server_data[:password]
         body['server']['sharedIpGroupId']   = server_data[:shared_ip_group_id] if server_data[:shared_ip_group_id]
-        body['server']['metadata']    = server_data[:metadata] unless server_data[:metadata].blank?
-        body['server']['personality'] = personality            unless personality.blank?
+        body['server']['metadata']    = server_data[:metadata] unless server_data[:metadata].right_blank?
+        body['server']['personality'] = personality            unless personality.right_blank?
+        # don't try to retry if we get a timeout
+        merge_connection_options!(opts, :raise_on_timeout => true)
         api(:post, "/servers", opts.merge(:body => body.to_json))
       end
 
@@ -666,8 +673,8 @@ module Rightscale
       #
       def update_backup_schedule(server_id, schedule_data={}, opts={})
         body = { 'backupSchedule' => { 'enabled' => schedule_data[:enabled] ? true : false } }
-        daily  = schedule_data[:daily].blank?  ? 'DISABLED' : schedule_data[:daily].to_s.upcase
-        weekly = schedule_data[:weekly].blank? ? 'DISABLED' : schedule_data[:weekly].to_s.upcase
+        daily  = schedule_data[:daily].right_blank?  ? 'DISABLED' : schedule_data[:daily].to_s.upcase
+        weekly = schedule_data[:weekly].right_blank? ? 'DISABLED' : schedule_data[:weekly].to_s.upcase
         body['backupSchedule']['daily']  = daily
         body['backupSchedule']['weekly'] = weekly
         api(:post, "/servers/#{server_id}/backup_schedule", opts.merge(:body => body.to_json))
@@ -714,7 +721,9 @@ module Rightscale
       #
       def create_shared_ip_group(name, server_id=nil, opts={})
         body = { 'sharedIpGroup' => { 'name' => name } }
-        body['sharedIpGroup']['server'] = server_id unless server_id.blank?
+        body['sharedIpGroup']['server'] = server_id unless server_id.right_blank?
+        # don't try to retry if we get a timeout
+        merge_connection_options!(opts, :raise_on_timeout => true)
         api(:post, "/shared_ip_groups", opts.merge(:body => body.to_json))
       end
 

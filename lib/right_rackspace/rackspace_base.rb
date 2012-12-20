@@ -21,7 +21,7 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 #
-module Rightscale
+module RightScale
   module Rackspace
 
     class BenchmarkingBlock #:nodoc:
@@ -48,7 +48,7 @@ module Rightscale
         @@rackspace_problems
       end
 
-      @@bench = Rightscale::Rackspace::BenchmarkingBlock.new
+      @@bench = RightScale::Rackspace::BenchmarkingBlock.new
       def self.bench
         @@bench
       end
@@ -70,9 +70,6 @@ module Rightscale
 
       attr_accessor :username
       attr_accessor :auth_key
-      attr_reader   :logged_in
-      attr_reader   :auth_headers
-      attr_reader   :auth_token
       attr_accessor :auth_endpoint
       attr_accessor :service_endpoint
       attr_accessor :last_request
@@ -163,20 +160,20 @@ module Rightscale
       # Handle creation:
       #
       #  # Just pass your username and youe key
-      #  rackspace = Rightscale::Rackspace::Interface::new('uw1...cct', '99b0...047d')
+      #  rackspace = RightScale::Rackspace::Interface::new('uw1...cct', '99b0...047d')
       #
       #  # The username and the key are in ENV vars: RACKSPACE_USERNAME & RACKSPACE_AUTH_KEY
-      #  rackspace = Rightscale::Rackspace::Interface::new
+      #  rackspace = RightScale::Rackspace::Interface::new
       #
       #  # Specify the auth endpoint and the service endpoint explicitly. Make the error
       #  # messages as verbose as possible.
-      #  rackspace = Rightscale::Rackspace::Interface::new('uw1...cct', '99b0...047d',
+      #  rackspace = RightScale::Rackspace::Interface::new('uw1...cct', '99b0...047d',
       #    :auth_endpoint  => 'https://api.mosso.com/auth',
       #    :service_point  => 'https://servers.api.rackspacecloud.com/v1.0/413609',
       #    :verbose_errors => true )
       #
       #  # Fix params after the handle creation:
-      #  rackspace = Rightscale::Rackspace::Interface::new('uw1...cct', '99b0...047d')
+      #  rackspace = RightScale::Rackspace::Interface::new('uw1...cct', '99b0...047d')
       #  rackspace.params[:verbose_errors] = true
       #
       # Calbacks handling:
@@ -192,7 +189,7 @@ module Rightscale
       #  end
       #
       #  # Create a handle
-      #  rackspace = Rightscale::Rackspace::Interface::new('uw1...cct', '99b0...047d',
+      #  rackspace = RightScale::Rackspace::Interface::new('uw1...cct', '99b0...047d',
       #    :on_response => on_response,
       #    :on_error    => on_error)
       #
@@ -201,9 +198,7 @@ module Rightscale
         # Auth data
         @username  = username || ENV['RACKSPACE_USERNAME']
         @auth_key  = auth_key || ENV['RACKSPACE_AUTH_KEY']
-        @logged_in = false
         # Auth host
-        @auth_headers  = {} # a set of headers is returned on authentification coplete
         @auth_endpoint = ENV['RACKSPACE_AUTH_ENDPOINT'] || params[:auth_endpoint] || DEFAULT_AUTH_ENDPOINT
         @auth_endpoint_data = endpoint_to_host_data(@auth_endpoint)
         #
@@ -220,8 +215,19 @@ module Rightscale
         @last_request = nil
         @last_request_opts = nil
         @last_response = nil
+        @rackspace_caching = params.has_key?(:rackspace_caching) ? params[:rackspace_caching] : true
         # cache
         @cache = {}
+      end
+
+      [:logged_in, :auth_token, :service_endpoint_data].each do |method|
+        define_method(method) do
+          credentials(username)[method]
+        end
+
+        define_method("#{method}=") do |value|
+          credentials(username)[method] = value
+        end
       end
 
       # Generate a request.
@@ -238,9 +244,15 @@ module Rightscale
         verb = verb.to_s.capitalize
         raise "Unsupported HTTP verb #{verb.inspect}!" unless verb[/^(Get|Post|Put|Delete|Head)$/]
         # Select an endpoint
-        endpoint_data = (opts[:endpoint_data] || @service_endpoint_data).dup
+        endpoint_data = (opts[:endpoint_data] || service_endpoint_data || {}).dup
+        raise "Missing service endpoint data" if endpoint_data.right_blank?
         # Fix a path
-        path = "/#{path}" if !path.blank? && !path[/^\//]
+        path = "/#{path}" if !path.right_blank? && !path[/^\//]
+        if verb == 'Get' && !(opts.key?(:rackspace_caching) ? opts[:rackspace_caching] : @rackspace_caching)
+          # In order to disable caching we have to add to the url unique param
+          opts[:vars] ||={}
+          opts[:vars][:rstimestamp] = generate_timestamp
+        end
         # Request variables
         request_params = opts[:vars].to_a.map do |key, value|
           key = key.to_s.downcase
@@ -251,8 +263,8 @@ module Rightscale
         # Build a request final path
         service = opts[:no_service_path] ? '' : endpoint_data[:service]
         request_path  = "#{service}#{path}"
-        request_path  = '/' if request_path.blank?
-        request_path += "?#{request_params}" unless request_params.blank?
+        request_path  = '/' if request_path.right_blank?
+        request_path += "?#{request_params}" unless request_params.right_blank?
         # Create a request
         request = eval("Net::HTTP::#{verb}").new(request_path)
         request.body = opts[:body] if opts[:body]
@@ -269,11 +281,24 @@ module Rightscale
           value.to_a.each{|v| request.add_field(key, v)}
         end
         request['content-type'] ||= 'application/json'
-        request['accept']       ||= 'application/json'
-        # keep these options
-        endpoint_data[:request_opts] = opts
+        request['accept'] = 'application/json'
+        # http connection options: global and custom
+        endpoint_data.merge!(@params[:connection_options]) if @params[:connection_options].is_a?(Hash)
+        endpoint_data.merge!(opts[:connection_options])    if opts[:connection_options].is_a?(Hash)
         # prepare output hash
-        endpoint_data.merge(:request => request)
+        endpoint_data.merge!(:request => request)
+        endpoint_data
+      end
+
+      def generate_timestamp
+        t = Time.now
+        ("%d%06d" % [ t.to_i, t.usec]).to_i
+      end
+      private :generate_timestamp
+
+      def credentials(username)
+        Thread.current['right_rackspace_credentials_storage'] ||= {}
+        Thread.current['right_rackspace_credentials_storage'][username] ||= {}
       end
 
       # Just requests a remote end
@@ -316,9 +341,9 @@ module Rightscale
             raise NoChange.new("NotModified: '#{simple_path(@last_request.path)}' has not changed since the requested time.")
           when '203'  # 'if-modified-since' header
             # TODO: Mhhh... It seems Rackspace updates 'last-modified' header every 60 seconds or something even if nothing has changed
-            if !block && self.cache && self.class.name[/Rackspace::Interface$/] && @last_response.body.blank?
+            if @last_response.body.right_blank?
               cached_path    = cached_path(@last_request.path)
-              last_modified  = @last_response['last-modified'].first
+              last_modified  = Array(@last_response['last-modified']).first
               message_header = merged_params[:caching] &&
                                @cache[cached_path] &&
                                @cache[cached_path][:last_modified_at] == last_modified ? 'Cached' : 'NotModified'
@@ -328,18 +353,13 @@ module Rightscale
           end
           # Parse a response body. If the body is empty the return +true+
           @@bench.parser.add! do
-            result =  if block
-                        true
-                      elsif request_hash[:request_opts][:do_not_parse_response]
-                        @last_response.body
-                      elsif @last_response.body.blank?
-                        true
-                      else
-                        case @last_response.content_type
-                        when 'application/json' then JSON::parse(@last_response.body)
-                        else @last_response.body
-                        end
-                      end
+            result = if @last_response.body.right_blank? then true
+                     else
+                       case Array(@last_response['content-type']).first
+                       when 'application/json' then JSON::parse(@last_response.body)
+                       else @last_response.body
+                       end
+                     end
           end
         else # ERROR
           @last_error = HttpErrorHandler::extract_error_description(@last_response, merged_params[:verbose_errors])
@@ -349,7 +369,9 @@ module Rightscale
           @error_handler   = nil
           if result.nil?
             on_event(:on_failure)
-            raise Error.new(@last_error)
+            error = Error.new(@last_error)
+            error.parsed_response = JSON.parse(@last_response.body) rescue nil
+            raise error
           end
         end
         result
@@ -360,7 +382,7 @@ module Rightscale
 
       #  simple_path('/v1.0/123456/images/detail?var1=var2') #=> '/images/detail?var1=var2'
       def simple_path(path) # :nodoc:
-        (path[/^#{@service_endpoint_data[:service]}(.*)/] && $1) || path
+        (path[/^#{service_endpoint_data[:service]}(.*)/] && $1) || path
       end
 
       #  simple_path('/v1.0/123456/images/detail?var1=var2') #=> '/images/detail'
@@ -378,8 +400,7 @@ module Rightscale
       # does not override @last_request and @last_response attributes (which are needed for a proper
       # error handling) on success.
       def authenticate(opts={}) # :nodoc:
-        @logged_in    = false
-        @auth_headers = {}
+        self.logged_in = false
         opts = opts.dup
         opts[:endpoint_data] = @auth_endpoint_data
         (opts[:headers] ||= {}).merge!({ 'x-auth-user' => @username, 'x-auth-key'  => @auth_key })
@@ -395,12 +416,11 @@ module Rightscale
           raise Error.new(@last_error)
         end
         # Store all auth response headers
-        @auth_headers = @last_response.to_hash
-        @auth_token   = @auth_headers[@auth_token_key].first
-        # Service endpoint
-        @service_endpoint      = merged_params[:service_endpoint] || @auth_headers[@service_endpoint_key].first
-        @service_endpoint_data = endpoint_to_host_data(@service_endpoint)
-        @logged_in = true
+        auth_headers               = @last_response.to_hash
+        service_endpoint           = merged_params[:service_endpoint] || Array(auth_headers['x-server-management-url']).first
+        self.service_endpoint_data = endpoint_to_host_data(service_endpoint)
+        self.auth_token            = Array(auth_headers['x-auth-token']).first
+        self.logged_in             = true
         on_event(:on_login_success)
         true
       end
@@ -420,10 +440,15 @@ module Rightscale
         end
         result = { resource_name => []}
         loop do
-          response = api(verb, path, opts)
-          result[resource_name] += response[resource_name]
-          break if  response.blank? ||
-                   (response[resource_name].blank?) ||
+#          begin
+            response = api(verb, path, opts)
+            result[resource_name] += response[resource_name]
+#          rescue RightScale::Rackspace::Error => e
+#            raise e unless e.message[/itemNotFound/]
+#            response = nil
+#          end
+          break if  response.right_blank? ||
+                   (response[resource_name].right_blank?) ||
                    (block && !block.call(response)) ||
                    (response[resource_name].size < opts[:vars]['limit'])
           opts[:vars]['offset'] += opts[:vars]['limit']
@@ -449,23 +474,18 @@ module Rightscale
       end
 
       # Call Rackspace. Caching is not used.
-      def api(verb, path='', options={}, &block) # :nodoc:
-        login unless @logged_in
+      def api(verb, path='', options={}) # :nodoc:
+        login unless logged_in
         options[:headers] ||= {}
-        options[:headers][@auth_token_key] = @auth_token
-        request_hash = generate_request(verb, path, options)
-        if options[:link_only]
-          url = ""
-          url << "#{request_hash[:protocol]}://" if request_hash[:protocol]
-          url << "#{request_hash[:server]}"
-          url << ":#{request_hash[:port]}" if request_hash[:port]
-          url << request_hash[:request].path
-          { :url     => url,
-            :method  => request_hash[:request].method,
-            :headers => request_hash[:request].to_hash }
-        else
-          request_info(request_hash, &block)
-        end
+        options[:headers]['x-auth-token'] = auth_token
+        request_info(generate_request(verb, path, options))
+      end
+
+      # Merge connection options but do not override the options are already set by a user
+      def merge_connection_options!(opts={}, connection_opts={})
+         opts[:connection_options] ||= {}
+         connection_opts.each{ |key, value| opts[:connection_options][key] = value unless opts[:connection_options].has_key?(key) }
+         opts
       end
 
       # Call Rackspace. Use cache if possible
@@ -474,7 +494,7 @@ module Rightscale
       #  otherwise it will get max DEFAULT_LIMIT items (PS API call must support pagination)
       #
       def api_or_cache(verb, path, options={}) # :nodoc:
-        use_caching  = merged_params[:caching] && options[:vars].blank?
+        use_caching  = merged_params[:caching] && options[:vars].right_blank?
         cache_record = use_caching && @cache[path]
         # Create a proc object to avoid a code duplication
         proc = Proc.new do
@@ -487,7 +507,7 @@ module Rightscale
         unless cache_record
           response = proc.call
           if use_caching
-            last_modified_at = @last_response.to_hash['last-modified'].first
+            last_modified_at = Array(@last_response['last-modified']).first
             update_cache(path, last_modified_at, response)
           end
           response
@@ -523,6 +543,22 @@ module Rightscale
     end
 
     class Error < RuntimeError
+      attr_accessor :parsed_response
+      
+      def http_code
+        return 500 if @parsed_response.nil?
+        @parsed_response.values.first["code"]
+      end
+      
+      def errors
+        return [default_error] if @parsed_response.nil?
+        @parsed_response.collect { |k,v| [k, v["message"]] }
+      end
+
+      def default_error
+        ["cloudServersFault", message]
+      end
+
     end
 
     class HttpErrorHandler # :nodoc:
@@ -622,6 +658,10 @@ module Rightscale
             # Oops it seems we have been asked about reauthentication..
             if REAUTHENTICATE_ON.include?(@handle.last_response.code)
               @handle.authenticate
+              # after authenticate (see the code above) we have updated token
+              # but we need to update appropriate request header with that token
+              # otherwise expired token will be used
+              request_hash[:request]['x-auth-token'] = @handle.auth_token
             end
             # Make another try
             result = @handle.request_info(request_hash, &block)
