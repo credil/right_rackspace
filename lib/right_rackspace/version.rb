@@ -23,6 +23,6 @@
 
 module RightScale
   module Rackspace
-    VERSION = "0.0.0"
+    VERSION = "0.0.0"+".20121220"
   end
 end
