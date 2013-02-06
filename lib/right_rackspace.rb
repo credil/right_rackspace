@@ -31,27 +31,19 @@ require 'right_http_connection'
 require 'time'
 
 $:.unshift(File.dirname(__FILE__))
-<<<<<<< HEAD
 require 'benchmark_fix'
 require 'right_rackspace_support'
 require 'rackspace_base'
 require 'rackspace'
 require 'rackspace_cloud_files'
 require 'rackspace_cdn'
-=======
->>>>>>> public
 
 require 'right_rackspace/benchmark_fix'
 require 'right_rackspace/rackspace_base'
 require 'right_rackspace/rackspace'
 require "right_rackspace/version"
 
-<<<<<<< HEAD
-    STRING = [MAJOR, MINOR, TINY].join('.') + '.20111110'
-  end
-=======
 # keep compartibility with old code
 module Rightscale
   Rackspace = RightScale::Rackspace unless defined?(::Rightscale::Rackspace)
->>>>>>> public
 end
