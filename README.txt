@@ -1,5 +1,7 @@
 = RightScale Rackspace Ruby Gems
 
+Maintained by the RightScale "Purple_team"
+
 Published by RightScale, Inc. under the MIT License.
 For information about RightScale, see http://www.rightscale.com
 
