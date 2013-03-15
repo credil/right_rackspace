@@ -65,7 +65,7 @@ module RightScale
       def merged_params #:nodoc:
         @@params.merge(@params)
       end
-      
+
       @@caching = false
 
       attr_accessor :username
@@ -140,7 +140,7 @@ module RightScale
       private :underscorize_response_keys
 
       # Create new Rackspace interface handle.
-      # 
+      #
       # Params:
       #  :logger            - a logger object
       #  :caching           - enabled/disables RightRackspace caching on level (only for list_xxx calls)
@@ -231,7 +231,7 @@ module RightScale
       end
 
       # Generate a request.
-      # 
+      #
       # opts:
       #  :body            - String
       #  :endpoint_data   - Hash
@@ -465,7 +465,7 @@ module RightScale
         loop do
           response = api(verb, path, opts)
           result += response
-          break if  response.blank? ||
+          break if  response.right_blank? ||
                    (block && !block.call(response)) ||
                    (response.size < opts[:vars]['limit'])
           opts[:vars]['marker'] = response.last['name']
@@ -544,12 +544,12 @@ module RightScale
 
     class Error < RuntimeError
       attr_accessor :parsed_response
-      
+
       def http_code
         return 500 if @parsed_response.nil?
         @parsed_response.values.first["code"]
       end
-      
+
       def errors
         return [default_error] if @parsed_response.nil?
         @parsed_response.collect { |k,v| [k, v["message"]] }

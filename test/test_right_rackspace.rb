@@ -60,7 +60,7 @@ class TestRightRackspace < Test::Unit::TestCase
     resource = resources.first
     if resource
       assert  resource.is_a?(Hash)
-      assert !resource.blank?
+      assert !resource.right_blank?
     end
 
     # get the detailed list of resources
@@ -70,7 +70,7 @@ class TestRightRackspace < Test::Unit::TestCase
     detailed_resource = detailed_resources.first
     if detailed_resource
       assert  detailed_resource.is_a?(Hash)
-      assert !detailed_resource.blank?
+      assert !detailed_resource.right_blank?
     end
 
     # make sure the detailed resource contains more data then non detailed
@@ -271,7 +271,7 @@ class TestRightRackspace < Test::Unit::TestCase
     end
     assert  public_addresses.is_a?(Hash)
     assert  public_addresses['public'].is_a?(Array)
-    assert !public_addresses['public'].blank?
+    assert !public_addresses['public'].right_blank?
     # private addresses
     private_addresses = nil
     assert_nothing_raised do
@@ -279,7 +279,7 @@ class TestRightRackspace < Test::Unit::TestCase
     end
     assert  private_addresses.is_a?(Hash)
     assert  private_addresses['private'].is_a?(Array)
-    assert !private_addresses['private'].blank?
+    assert !private_addresses['private'].right_blank?
   end
 
   def test_060_delete_server
